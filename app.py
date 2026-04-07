@@ -96,9 +96,10 @@ def tasks() -> List[TaskSummary]:
 
 
 @app.post("/reset")
-def reset(request: ResetRequest) -> Dict:
+def reset(request: Optional[ResetRequest] = None) -> Dict:
     global _current_task, _current_env, _last_done, _last_score
 
+    request = request or ResetRequest()
     _current_task = _resolve_task(request.task_id)
     _current_env = CPUSchedulerEnv(
         _current_task["processes"], task_name=str(_current_task["name"])
@@ -115,10 +116,11 @@ def reset(request: ResetRequest) -> Dict:
 
 
 @app.post("/step")
-def step(request: StepRequest) -> Dict:
+def step(request: Optional[StepRequest] = None) -> Dict:
     global _last_done, _last_score
 
     env = _require_env()
+    request = request or StepRequest()
 
     if _last_done:
         raise HTTPException(status_code=400, detail="Episode already finished. Call /reset.")
