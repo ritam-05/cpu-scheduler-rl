@@ -1,0 +1,18 @@
+name: cpu-scheduler-rl
+env_name: cpu_scheduler
+description: Deterministic CPU scheduling environment with graded tasks and a deployable API.
+entrypoint: app.py
+inference_script: inference.py
+server:
+  host: 0.0.0.0
+  port: 7860
+tasks:
+  - id: task1
+    name: short_job_scheduling
+  - id: task2
+    name: priority_scheduling
+  - id: task3
+    name: mixed_workload
+runtime:
+  python: "3.11"
+  docker: true
