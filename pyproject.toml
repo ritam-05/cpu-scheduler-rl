@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cpu-scheduler-rl"
+version = "0.1.0"
+description = "OpenEnv-style CPU scheduling benchmark with FastAPI deployment and baseline inference."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "openai>=1.30.0",
+    "uvicorn>=0.30.0",
+]
+
+[tool.setuptools]
+py-modules = ["agent", "app", "env", "grader", "inference", "tasks"]
