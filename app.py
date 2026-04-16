@@ -35,6 +35,15 @@ class ResetRequest(BaseModel):
         default="task1",
         description="Task key such as task1/task2/task3 or the task name.",
     )
+    algorithm: str = Field(
+        default="sjf",
+        description="Scheduling policy: fcfs, sjf, srjf, rr, or priority.",
+    )
+    time_quantum: int = Field(
+        default=2,
+        ge=1,
+        description="Time quantum used by round robin.",
+    )
 
 
 class StepRequest(BaseModel):
@@ -102,7 +111,10 @@ def reset(request: Optional[ResetRequest] = None) -> Dict:
     request = request or ResetRequest()
     _current_task = _resolve_task(request.task_id)
     _current_env = CPUSchedulerEnv(
-        _current_task["processes"], task_name=str(_current_task["name"])
+        _current_task["processes"],
+        task_name=str(_current_task["name"]),
+        algorithm=request.algorithm,
+        time_quantum=request.time_quantum,
     )
     _last_done = False
     _last_score = 0.0

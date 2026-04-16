@@ -19,7 +19,7 @@ class Process:
 
 
 class CPUSchedulerEnv:
-    """Simple non-preemptive, single-core scheduling environment.
+    """Simple single-core scheduling environment with selectable policies.
 
     OpenEnv-style API:
     - reset()
@@ -27,10 +27,54 @@ class CPUSchedulerEnv:
     - get_state()
     """
 
-    def __init__(self, processes: List[Dict], task_name: str = "unknown") -> None:
+    def __init__(
+        self,
+        processes: List[Dict],
+        task_name: str = "unknown",
+        algorithm: str = "sjf",
+        time_quantum: int = 2,
+    ) -> None:
         self._seed_processes = processes
         self.task_name = task_name
+        self.algorithm = self._normalize_algorithm(algorithm)
+        self.time_quantum = max(1, int(time_quantum))
         self.reset()
+
+    @staticmethod
+    def _normalize_algorithm(algorithm: str) -> str:
+        value = (algorithm or "sjf").strip().lower()
+        aliases = {
+            "srtf": "srjf",
+            "sjf": "sjf",
+            "shortest_job_first": "sjf",
+            "shortest_remaining_job_first": "srjf",
+            "priority": "priority",
+            "priority_scheduling": "priority",
+            "fcfs": "fcfs",
+            "first_come_first_served": "fcfs",
+            "rr": "rr",
+            "round_robin": "rr",
+        }
+        normalized = aliases.get(value, value)
+        if normalized not in {"fcfs", "sjf", "srjf", "rr", "priority"}:
+            return "sjf"
+        return normalized
+
+    def _queue_sort_key(self, proc: Process) -> Tuple[int, int, int, str]:
+        if self.algorithm == "fcfs":
+            return (proc.arrival_time, 0, 0, proc.pid)
+        if self.algorithm in {"sjf", "srjf"}:
+            return (proc.remaining_time, proc.arrival_time, proc.priority, proc.pid)
+        if self.algorithm == "priority":
+            return (proc.priority, proc.remaining_time, proc.arrival_time, proc.pid)
+        return (proc.arrival_time, proc.remaining_time, proc.priority, proc.pid)
+
+    def _time_slice(self, selected: Process) -> int:
+        if self.algorithm == "rr":
+            return min(self.time_quantum, selected.remaining_time)
+        if self.algorithm == "srjf":
+            return 1
+        return selected.remaining_time
 
     def reset(self) -> Dict:
         """Reset environment state and return the initial observable state."""
@@ -66,9 +110,12 @@ class CPUSchedulerEnv:
     def get_state(self) -> Dict:
         """Return the current state with queue details, time, and CPU status."""
         queue_state = []
-        for p in sorted(
-            self.ready_queue, key=lambda x: (x.priority, x.remaining_time, x.pid)
-        ):
+        queue_view = (
+            list(self.ready_queue)
+            if self.algorithm == "rr"
+            else sorted(self.ready_queue, key=self._queue_sort_key)
+        )
+        for p in queue_view:
             queue_state.append(
                 {
                     "pid": p.pid,
@@ -82,6 +129,8 @@ class CPUSchedulerEnv:
 
         return {
             "task": self.task_name,
+            "algorithm": self.algorithm,
+            "time_quantum": self.time_quantum,
             "current_time": self.current_time,
             "cpu_state": self.cpu_state,
             "queue": queue_state,
@@ -89,13 +138,12 @@ class CPUSchedulerEnv:
             "completed_count": len(self.completed),
         }
 
-    def _heuristic_sjf(self) -> Optional[str]:
+    def _heuristic_pid(self) -> Optional[str]:
         if not self.ready_queue:
             return None
-        best = min(
-            self.ready_queue,
-            key=lambda p: (p.remaining_time, p.priority, p.arrival_time, p.pid),
-        )
+        if self.algorithm in {"fcfs", "rr"}:
+            return self.ready_queue[0].pid
+        best = min(self.ready_queue, key=self._queue_sort_key)
         return best.pid
 
     def _pick_process(self, action: Optional[str]) -> Tuple[Optional[Process], bool]:
@@ -104,13 +152,13 @@ class CPUSchedulerEnv:
             return None, False
 
         if action is None:
-            action = self._heuristic_sjf()
+            action = self._heuristic_pid()
 
         for idx, proc in enumerate(self.ready_queue):
             if proc.pid == str(action):
                 return self.ready_queue.pop(idx), False
 
-        fallback_pid = self._heuristic_sjf()
+        fallback_pid = self._heuristic_pid()
         for idx, proc in enumerate(self.ready_queue):
             if proc.pid == fallback_pid:
                 return self.ready_queue.pop(idx), True
@@ -119,7 +167,8 @@ class CPUSchedulerEnv:
     def step(self, action: Optional[str]):
         """Apply scheduling action and advance simulation.
 
-        Reward: -(waiting_time + idle_time_step) + completion_bonus
+        Reward: a small positive signal when a job completes, otherwise a light
+        penalty for CPU time spent on a slice.
         """
         self._admit_arrivals()
         pre_state = self.get_state()
@@ -173,27 +222,37 @@ class CPUSchedulerEnv:
             )
             return self.get_state(), reward, done, info
 
-        waiting_time = max(0, self.current_time - selected.arrival_time)
-        run_for = selected.remaining_time
+        run_for = self._time_slice(selected)
+        selected.remaining_time -= run_for
         self.current_time += run_for
-        selected.remaining_time = 0
-        selected.completion_time = self.current_time
-        self.completed.append(selected)
-
-        self.total_waiting_time += waiting_time
-        completion_bonus = 5.0
-        reward = -float(waiting_time) + completion_bonus
-        turnaround_time = selected.completion_time - selected.arrival_time
+        completed_now = selected.remaining_time <= 0
+        turnaround_time = 0
+        waiting_time = 0
+        if completed_now:
+            selected.remaining_time = 0
+            selected.completion_time = self.current_time
+            self.completed.append(selected)
+            turnaround_time = selected.completion_time - selected.arrival_time
+            waiting_time = turnaround_time - selected.burst_time
+            self.total_waiting_time += waiting_time
+            completion_bonus = 5.0
+            reward = completion_bonus - float(waiting_time)
 
         self._admit_arrivals()
+        if not completed_now:
+            # Put unfinished work back into the queue for preemptive policies.
+            self.ready_queue.append(selected)
+            reward = -float(run_for)
         done = not self.ready_queue and not self.pending
 
         info = {
-            "event": "completed",
+            "event": "completed" if completed_now else "preempted",
             "selected_pid": selected.pid,
             "waiting_time": waiting_time,
             "turnaround_time": turnaround_time,
             "fallback_used": used_fallback,
+            "time_slice": run_for,
+            "remaining_time": selected.remaining_time,
         }
         self.steps_log.append(
             {

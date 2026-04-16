@@ -8,6 +8,13 @@ from tasks import load_tasks
 
 
 class CPUSchedulerEnvTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.simple_processes = [
+            {"pid": "P1", "arrival_time": 0, "burst_time": 5, "priority": 3},
+            {"pid": "P2", "arrival_time": 0, "burst_time": 2, "priority": 1},
+            {"pid": "P3", "arrival_time": 1, "burst_time": 1, "priority": 2},
+        ]
+
     def test_reset_exposes_queue_state(self) -> None:
         task = load_tasks()[0]
         env = CPUSchedulerEnv(task["processes"], task_name=task["name"])
@@ -28,6 +35,46 @@ class CPUSchedulerEnvTests(unittest.TestCase):
         self.assertFalse(done)
         self.assertTrue(info["fallback_used"])
         self.assertEqual(info["event"], "completed")
+
+    def test_fcfs_prefers_first_arrival(self) -> None:
+        env = CPUSchedulerEnv(self.simple_processes, algorithm="fcfs")
+        env.reset()
+
+        _state, _reward, _done, info = env.step(None)
+
+        self.assertEqual(info["selected_pid"], "P1")
+        self.assertEqual(info["event"], "completed")
+
+    def test_priority_prefers_lowest_priority_value(self) -> None:
+        env = CPUSchedulerEnv(self.simple_processes, algorithm="priority")
+        env.reset()
+
+        _state, _reward, _done, info = env.step(None)
+
+        self.assertEqual(info["selected_pid"], "P2")
+        self.assertEqual(info["event"], "completed")
+
+    def test_srjf_can_preempt_longer_job(self) -> None:
+        env = CPUSchedulerEnv(self.simple_processes, algorithm="srjf")
+        env.reset()
+
+        _state, _reward, _done, info = env.step("P1")
+
+        self.assertEqual(info["selected_pid"], "P1")
+        self.assertEqual(info["event"], "preempted")
+        state = env.get_state()
+        self.assertEqual(state["queue"][0]["pid"], "P3")
+
+    def test_round_robin_rotates_unfinished_work(self) -> None:
+        env = CPUSchedulerEnv(self.simple_processes, algorithm="rr", time_quantum=2)
+        env.reset()
+
+        _state, _reward, _done, info = env.step(None)
+
+        self.assertEqual(info["selected_pid"], "P1")
+        self.assertEqual(info["event"], "preempted")
+        state = env.get_state()
+        self.assertEqual(state["queue"][0]["pid"], "P2")
 
     def test_all_tasks_grade_to_unit_interval(self) -> None:
         for task in load_tasks():
