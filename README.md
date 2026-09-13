@@ -1,1067 +1,780 @@
-CPU SCHEDULER RL
-=================
+# CPU Scheduler RL
 
-A CPU Scheduling Simulator, Reinforcement Learning Platform, and
-Benchmarking Framework for Classical Operating System Schedulers.
+<p align="center">
+  <strong>Classical CPU Scheduling × Reinforcement Learning × Intelligent Benchmarking</strong>
+</p>
 
-PROJECT OVERVIEW
-----------------
+<p align="center">
+  A CPU scheduling simulator that compares traditional operating system algorithms against a custom PPO-based reinforcement learning agent, with optional Groq-powered performance analysis.
+</p>
 
-CPU Scheduler RL is an end-to-end systems and artificial intelligence
-project that evaluates classical CPU scheduling algorithms against a
-custom Reinforcement Learning (RL) agent.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/RL-PPO-orange" alt="PPO"/>
+  <img src="https://img.shields.io/badge/Environment-Gymnasium-green" alt="Gymnasium"/>
+  <img src="https://img.shields.io/badge/LLM-Groq-purple" alt="Groq"/>
+  <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License"/>
+</p>
 
-The platform combines discrete-time CPU scheduling simulation,
-Gymnasium-based reinforcement learning, PPO training, reproducible
-benchmarking, and LLM-powered performance analysis through Groq.
+---
 
-Users can execute individual scheduling algorithms, configure
-Round Robin time quantum, train and evaluate an RL policy, and compare
-all approaches using consistent performance metrics.
+## Overview
 
-The project is designed for local, CPU-based execution using free and
-open-source software, with optional Groq API integration for intelligent
-workload and benchmark analysis.
+CPU Scheduler RL is an end-to-end simulation and benchmarking platform for exploring how classical CPU scheduling algorithms compare with a learned reinforcement learning policy.
 
-KEY FEATURES
-------------
+The system simulates process execution tick by tick, supports dynamic process arrivals, generates Gantt charts, calculates scheduling metrics, and evaluates algorithms on identical workloads.
 
-1. Discrete-time CPU scheduling simulation.
-2. Dynamic process arrivals and ready queue management.
-3. Classical scheduling algorithms:
-   - First Come, First Served (FCFS)
-   - Shortest Job First (SJF)
-   - Shortest Remaining Time First (SRTF)
-   - Priority Scheduling
-   - Round Robin (RR)
-4. Configurable Round Robin time quantum through the CLI.
-5. Gymnasium-compatible reinforcement learning environment.
-6. PPO-based RL agent using Stable-Baselines3.
-7. Randomized workload generation for RL training.
-8. Deterministic evaluation and reproducible experiments.
-9. Action validation and fallback scheduling during inference.
-10. Gantt chart visualization using Matplotlib.
-11. Structured terminal results using tabulate.
-12. CSV export of scheduling metrics.
-13. Comparative benchmarking of classical and RL schedulers.
-14. Groq LLM integration using openai/gpt-oss-120b.
-15. Automatic Mock Mode when Groq credentials are unavailable.
-16. Unit tests for environment, scheduling, and LLM functionality.
-17. CPU-friendly local training and experimentation.
+An optional Groq LLM analyst, powered by `openai/gpt-oss-120b`, provides higher-level explanations of workload characteristics and benchmark outcomes.
 
-PROBLEM STATEMENT
------------------
+The project combines operating systems, simulation, reinforcement learning, and AI-powered experiment analysis in a single reproducible platform.
 
-Classical CPU scheduling algorithms use predefined heuristics to
-determine which process should receive CPU time.
+## Highlights
 
-Although these algorithms are effective for many workloads, their
-performance depends on workload characteristics such as burst times,
-arrival patterns, priorities, and process contention.
+* Classical CPU scheduling simulation with five baseline algorithms.
+* PPO-based reinforcement learning scheduler.
+* Randomized workloads for training and evaluation.
+* Configurable Round Robin time quantum.
+* Gymnasium-compatible RL environment.
+* Common simulation engine and benchmarking metrics.
+* CLI-based inference and experiment execution.
+* Gantt chart visualization and CSV export.
+* Optional Groq LLM benchmark analysis.
+* Mock Mode for API-independent development.
+* Unit tests for scheduling correctness and environment behavior.
+* Designed for free, local-first execution.
 
-This project investigates whether a Reinforcement Learning agent can
-learn scheduling policies that perform competitively with classical
-algorithms under specific workload distributions and optimization
-objectives.
+---
 
-The system provides a common simulation environment and evaluation
-pipeline so that all algorithms can be compared fairly.
+## Supported Scheduling Algorithms
 
-PROJECT GOALS
--------------
+| Algorithm   | Scheduling Type | Description                                           |
+| :---------- | :-------------: | :---------------------------------------------------- |
+| FCFS        |  Non-preemptive | Executes processes in arrival order.                  |
+| SJF         |  Non-preemptive | Selects the shortest available CPU burst.             |
+| SRTF        |    Preemptive   | Selects the process with the shortest remaining time. |
+| Priority    |  Non-preemptive | Selects the highest-priority ready process.           |
+| Round Robin |    Preemptive   | Cyclic scheduling using a configurable time quantum.  |
+| PPO         |  Learned policy | Selects processes using a trained RL policy.          |
 
-1. Simulate CPU scheduling accurately.
-2. Implement and validate classical scheduling algorithms.
-3. Train an RL policy using randomized workloads.
-4. Evaluate the learned policy on unseen workloads.
-5. Compare scheduling performance using consistent metrics.
-6. Analyze experiment results using an optional LLM-powered analyst.
-7. Provide a reproducible, professional research and engineering
-   workflow.
+---
 
-ARCHITECTURE
-------------
+## Architecture
 
-The platform consists of the following major components:
+```mermaid
+flowchart TD
 
-1. Process and Workload Layer
+subgraph group_benchmark["Benchmark logic"]
+  node_core_benchmark["Benchmark core<br/>system boundary"]
+  node_env_py["Env state<br/>deterministic env<br/>[env.py]"]
+  node_tasks_py["Tasks<br/>task config<br/>[tasks.py]"]
+  node_grader_py["Grader<br/>scorer<br/>[grader.py]"]
+end
 
-   Generates or loads processes with arrival time, burst time,
-   priority, and remaining execution time.
+subgraph group_service["Service transport"]
+  node_api_surface["API surface<br/>HTTP interface"]
+  node_app_py["Local app<br/>entrypoint<br/>[app.py]"]
+  node_server_app_py["Hosted app<br/>entrypoint<br/>[app.py]"]
+end
 
-2. Simulation Engine
+subgraph group_clients["Client execution"]
+  node_agent_py["Agent<br/>policy wrapper<br/>[agent.py]"]
+  node_inference_py["Inference runner<br/>baseline runner<br/>[inference.py]"]
+  node_model_api(("Model API<br/>external model"))
+  node_sjf_fallback(("SJF fallback<br/>heuristic policy"))
+end
 
-   Advances CPU execution tick by tick, manages the ready queue,
-   handles process arrivals and completion, and records scheduling
-   events.
+subgraph group_deploy["Deployment"]
+  node_dockerfile["Container build<br/>runtime image"]
+  node_openenv_yaml["OpenEnv config<br/>deployment config<br/>[openenv.yaml]"]
+  node_package_meta["Package setup<br/>python packaging"]
+end
 
-3. Classical Scheduler Layer
+subgraph group_tests["Tests"]
+  node_env_tests["Env tests<br/>test suite<br/>[test_env.py]"]
+end
 
-   Provides FCFS, SJF, SRTF, Priority, and Round Robin implementations.
+node_core_benchmark -->|"contains"| node_env_py
+node_core_benchmark -->|"defines"| node_tasks_py
+node_core_benchmark -->|"scores"| node_grader_py
+node_api_surface -->|"drives"| node_env_py
+node_api_surface -->|"lists"| node_tasks_py
+node_api_surface -->|"exposes"| node_grader_py
+node_app_py -->|"serves"| node_api_surface
+node_server_app_py -->|"serves"| node_api_surface
+node_agent_py -->|"acts on"| node_env_py
+node_inference_py -->|"uses"| node_agent_py
+node_inference_py -->|"calls"| node_model_api
+node_inference_py -->|"falls back to"| node_sjf_fallback
+node_inference_py -->|"drives"| node_api_surface
+node_env_tests -->|"verifies"| node_env_py
+node_dockerfile -->|"packages"| node_app_py
+node_openenv_yaml -->|"deploys"| node_server_app_py
+node_package_meta -.->|"supports"| node_app_py
+node_package_meta -.->|"supports"| node_server_app_py
 
-4. Reinforcement Learning Layer
+click node_env_py "https://github.com/ritam-05/cpu-scheduler-rl/blob/main/env.py"
+click node_tasks_py "https://github.com/ritam-05/cpu-scheduler-rl/blob/main/tasks.py"
+click node_grader_py "https://github.com/ritam-05/cpu-scheduler-rl/blob/main/grader.py"
+click node_app_py "https://github.com/ritam-05/cpu-scheduler-rl/blob/main/app.py"
+click node_server_app_py "https://github.com/ritam-05/cpu-scheduler-rl/blob/main/server/app.py"
+click node_agent_py "https://github.com/ritam-05/cpu-scheduler-rl/blob/main/agent.py"
+click node_inference_py "https://github.com/ritam-05/cpu-scheduler-rl/blob/main/inference.py"
+click node_env_tests "https://github.com/ritam-05/cpu-scheduler-rl/blob/main/tests/test_env.py"
+click node_dockerfile "https://github.com/ritam-05/cpu-scheduler-rl/tree/main/Dockerfile"
+click node_openenv_yaml "https://github.com/ritam-05/cpu-scheduler-rl/blob/main/openenv.yaml"
 
-   Defines the CPU scheduling problem as a Gymnasium MDP and trains
-   a PPO agent to select processes for execution.
+classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+class node_core_benchmark,node_env_py,node_tasks_py,node_grader_py toneBlue
+class node_api_surface,node_app_py,node_server_app_py toneAmber
+class node_agent_py,node_inference_py,node_model_api,node_sjf_fallback toneMint
+class node_dockerfile,node_openenv_yaml,node_package_meta toneRose
+class node_env_tests toneIndigo
+```
 
-5. Benchmarking Layer
+```text
+                         CPU SCHEDULER RL
+                                |
+                                v
+                       CLI / User Input
+                                |
+                                v
+                  Workload Generator / JSON
+                                |
+                                v
+                     Simulation Engine
+                                |
+                +---------------+---------------+
+                |                               |
+                v                               v
+       Classical Schedulers              RL Environment
+                |                               |
+                |                               v
+                |                         PPO Training
+                |                               |
+                |                               v
+                |                         RL Inference
+                |                               |
+                +---------------+---------------+
+                                |
+                                v
+                       Benchmark Engine
+                                |
+              +-----------------+-----------------+
+              |                 |                 |
+              v                 v                 v
+          Metrics           Gantt Charts       CSV Export
+                                |
+                                v
+                     Optional Groq Analyst
+                                |
+                                v
+                    Experiment Interpretation
+```
 
-   Runs all algorithms on identical workloads and calculates
-   comparable performance metrics.
+### Core components
 
-6. Visualization and Export Layer
+| Component            | Responsibility                                              |
+| :------------------- | :---------------------------------------------------------- |
+| Simulation Engine    | Executes CPU scheduling tick by tick.                       |
+| Classical Schedulers | Implements FCFS, SJF, SRTF, Priority, and RR.               |
+| RL Environment       | Defines the CPU scheduling MDP using Gymnasium.             |
+| PPO Agent            | Learns scheduling policies from randomized workloads.       |
+| Benchmark Engine     | Evaluates algorithms using identical workloads.             |
+| Visualization        | Generates Gantt charts and comparative plots.               |
+| Groq Analyst         | Interprets workload and benchmark results.                  |
+| CLI                  | Provides a unified interface for experiments and inference. |
 
-   Generates Gantt charts, terminal tables, CSV reports, and
-   comparative performance plots.
+---
 
-7. Groq LLM Analyst
+## Reinforcement Learning
 
-   Uses openai/gpt-oss-120b through Groq to analyze workloads,
-   interpret benchmark results, and explain algorithmic behavior.
+The CPU scheduling problem is modeled as a Markov Decision Process (MDP).
 
-HIGH-LEVEL PIPELINE
--------------------
+### Observation Space
 
-User CLI Input
-      |
-      v
-Workload Generator or JSON Workload Loader
-      |
-      v
-Common CPU Simulation Engine
-      |
-      +-------------------------------+
-      |                               |
-      v                               v
-Classical Scheduling Algorithms       RL Scheduling Environment
-      |                               |
-      |                               v
-      |                         PPO Training
-      |                               |
-      |                               v
-      |                         Trained RL Policy
-      |                               |
-      +---------------+---------------+
-                      |
-                      v
-              Benchmark Engine
-                      |
-                      v
-       Metrics, Gantt Charts, CSV Reports
-                      |
-                      v
-             Optional Groq Analysis
-                      |
-                      v
-               Final Results
+The environment uses a normalized `np.float32` matrix:
 
-SUPPORTED SCHEDULING ALGORITHMS
--------------------------------
-
-1. FIRST COME, FIRST SERVED (FCFS)
-
-   Type:
-   Non-preemptive.
-
-   Description:
-   Processes are executed in the order in which they arrive in the
-   ready queue.
-
-   Characteristics:
-   - Simple implementation.
-   - Fair according to arrival order.
-   - Can cause convoy effects.
-   - Long processes may delay short processes.
-
-2. SHORTEST JOB FIRST (SJF)
-
-   Type:
-   Non-preemptive.
-
-   Description:
-   Among the available processes, the process with the shortest total
-   CPU burst time is selected.
-
-   Characteristics:
-   - Can minimize average waiting time under ideal assumptions.
-   - Requires knowledge or estimation of burst time.
-   - May cause starvation of long processes.
-
-3. SHORTEST REMAINING TIME FIRST (SRTF)
-
-   Type:
-   Preemptive.
-
-   Description:
-   The process with the smallest remaining CPU execution time is
-   selected. A running process may be preempted when a newly arrived
-   process has a shorter remaining time.
-
-   Characteristics:
-   - Preemptive version of SJF.
-   - Can improve response and waiting time.
-   - Requires frequent scheduling decisions.
-   - May increase context switches.
-
-4. PRIORITY SCHEDULING
-
-   Type:
-   Non-preemptive.
-
-   Description:
-   The scheduler selects the ready process with the highest priority.
-
-   Priority Convention:
-   The project must document whether a smaller numerical value or
-   larger numerical value represents higher priority.
-
-   Characteristics:
-   - Useful for workload differentiation.
-   - Can cause starvation without aging.
-   - Behavior depends on the priority convention.
-
-5. ROUND ROBIN (RR)
-
-   Type:
-   Preemptive.
-
-   Description:
-   Each ready process receives CPU time for a fixed time quantum.
-   When the quantum expires, the process is requeued if it still has
-   remaining execution time.
-
-   Configurable Parameter:
-   Time quantum.
-
-   Example:
-   Quantum = 4
-
-   Command:
-   python inference.py --algorithm rr --quantum 4 --processes 5
-
-   Characteristics:
-   - Suitable for time-sharing systems.
-   - Provides responsive scheduling.
-   - Performance depends heavily on the time quantum.
-   - Small quantums may increase context switches.
-   - Large quantums make Round Robin behave more like FCFS.
-
-SIMULATION ENGINE
------------------
-
-The platform uses a discrete-time CPU simulation engine.
-
-Instead of relying only on analytical formulas, the simulator advances
-execution tick by tick and maintains the actual state of every process.
-
-PROCESS ATTRIBUTES
-------------------
+```text
+(max_processes, 5)
+```
 
 Each process contains:
 
-1. Process ID (PID)
-2. Arrival Time
-3. Burst Time
-4. Remaining Time
-5. Priority
-6. Start Time
-7. Completion Time
-8. Waiting Time
-9. Response Time
-10. Completion Status
+| Feature          | Meaning                                                 |
+| :--------------- | :------------------------------------------------------ |
+| `is_present`     | Whether the process slot is active.                     |
+| `is_ready`       | Whether the process has arrived and has remaining work. |
+| `remaining_time` | CPU ticks required to complete the process.             |
+| `priority`       | Static priority rank.                                   |
+| `wait_time`      | Accumulated waiting time.                               |
 
-SIMULATION RESPONSIBILITIES
----------------------------
+### Action Space
 
-The simulation engine handles:
+```python
+gymnasium.spaces.Discrete(max_processes)
+```
 
-1. CPU clock advancement.
-2. Dynamic process arrivals.
-3. Ready queue management.
-4. Process selection.
-5. Process execution.
-6. Preemption.
-7. Process completion.
-8. CPU idle periods.
-9. Context-switch tracking.
-10. Gantt chart event generation.
-11. Per-process metric calculation.
-12. Aggregate workload metrics.
+Each action represents the process index selected for the next CPU scheduling decision.
 
-The engine provides a common result format so that every scheduling
-algorithm can be evaluated consistently.
+Invalid actions are penalized, and deterministic inference includes a fallback policy that selects a valid ready process when necessary.
 
-CORE PERFORMANCE METRICS
-------------------------
+### Reward Function
 
-1. WAITING TIME
+The current dense reward design penalizes the number of processes waiting in the ready queue:
 
-   Waiting time represents the total time a process spends waiting
-   in the ready queue.
-
-   Formula:
-
-   Waiting Time = Turnaround Time - Burst Time
-
-2. TURNAROUND TIME
-
-   Turnaround time is the total time from process arrival until
-   process completion.
-
-   Formula:
-
-   Turnaround Time = Completion Time - Arrival Time
-
-3. RESPONSE TIME
-
-   Response time is the time between process arrival and its first
-   allocation of CPU time.
-
-   Formula:
-
-   Response Time = First Start Time - Arrival Time
-
-4. MAKESPAN
-
-   Makespan is the total elapsed simulation time required to complete
-   the workload.
-
-   It is measured from the beginning of the simulation until the
-   final process completes.
-
-5. CONTEXT SWITCHES
-
-   Context switches measure the number of times CPU execution changes
-   from one process ID to another.
-
-   The count is derived from generated Gantt chart execution events
-   according to the project's documented counting convention.
-
-6. CPU UTILIZATION
-
-   CPU utilization represents the proportion of elapsed simulation
-   time during which the CPU is executing a process.
-
-   Formula:
-
-   CPU Utilization = Busy CPU Time / Total Elapsed Time
-
-7. THROUGHPUT
-
-   Throughput represents the number of completed processes per unit
-   of elapsed simulation time.
-
-REINFORCEMENT LEARNING ENVIRONMENT
-----------------------------------
-
-The scheduling problem is formulated as a Markov Decision Process
-using the Gymnasium API.
-
-The RL environment is implemented through a randomized CPU workload
-environment.
-
-OBSERVATION SPACE
------------------
-
-The observation is a normalized NumPy float32 matrix of shape:
-
-(max_processes, 5)
-
-Each process row contains the following five features:
-
-1. is_present
-
-   Indicates whether the process slot is active.
-
-2. is_ready
-
-   Indicates whether the process has arrived and still has
-   remaining execution time.
-
-3. remaining_time
-
-   The number of CPU ticks required to complete the process.
-
-4. priority
-
-   The static priority rank of the process.
-
-5. wait_time
-
-   The accumulated waiting time up to the current simulation tick.
-
-The observation is normalized to improve neural network training
-stability.
-
-ACTION SPACE
-------------
-
-The action space is:
-
-Discrete(max_processes)
-
-Each integer action represents a process index.
-
-For example:
-
-Action 0 selects process slot 0.
-Action 1 selects process slot 1.
-Action 2 selects process slot 2.
-
-The environment validates whether the selected process is eligible
-for execution.
-
-INVALID ACTION HANDLING
------------------------
-
-An invalid action may occur when the RL agent selects:
-
-1. A process that has not arrived.
-2. A process that has already completed.
-3. A process with no remaining execution time.
-4. An inactive process slot.
-
-The environment applies a strong penalty to invalid actions.
-
-During deterministic inference, a fallback policy selects the first
-available valid process if the trained model produces an invalid
-selection.
-
-This prevents invalid scheduling decisions from causing infinite
-loops or CPU simulation freezes.
-
-REWARD FUNCTION
----------------
-
-The current reward design uses a dense negative penalty.
-
-For each simulation tick:
-
+```text
 Reward = -Ready Queue Size
+```
 
-This penalizes the number of processes waiting in the ready queue.
+Invalid action penalty:
 
-An additional invalid-action penalty is applied:
+```text
+-10
+```
 
-Invalid Action Penalty = -10
+The reward function is a configurable training objective. Final algorithm comparisons are performed using explicit scheduling metrics rather than reward alone.
 
-The reward function is designed to encourage the agent to reduce
-queue waiting and make valid scheduling decisions.
+### PPO Configuration
 
-The reward is a training objective and should be interpreted separately
-from the final benchmark metrics.
-
-RL AGENT AND TRAINING
----------------------
-
-The platform uses Proximal Policy Optimization (PPO) from
-Stable-Baselines3.
-
-MODEL ARCHITECTURE
-------------------
-
-Policy Type:
-Multi-Layer Perceptron (MlpPolicy)
-
-Neural Network Architecture:
-Two hidden layers with 128 neurons each.
-
-Configuration:
-
-net_arch = [128, 128]
-
-The network receives the flattened scheduling observation and
-produces the policy and value estimates required by PPO.
-
-TRAINING ENVIRONMENT
---------------------
-
-The RL agent trains using a RandomizedCPUEnv.
-
-A fresh randomized workload is generated on every environment reset.
-
-This prevents the agent from simply memorizing one fixed schedule
-and encourages learning scheduling behavior across different
-workload configurations.
-
-CURRENT TRAINING CONFIGURATION
-------------------------------
-
-Algorithm:
-PPO
-
-Learning Rate:
-0.0003
-
-Rollout Buffer Size:
-1024 steps
-
-Batch Size:
-64
-
-Entropy Coefficient:
-0.01
-
-Policy Network:
-Two hidden layers of 128 neurons each.
-
-The training configuration can be adjusted for larger experiments
-and improved convergence.
-
-CPU-FRIENDLY TRAINING
----------------------
-
-The project is designed to run on a normal Windows laptop using
-CPU-only execution.
-
-Training timesteps can be adjusted depending on available resources.
-
-Suggested experiments:
-
-25,000 timesteps:
-Quick development experiment.
-
-50,000 timesteps:
-Base training experiment.
-
-100,000 timesteps:
-Extended training experiment.
-
-250,000 timesteps:
-Longer training experiment for deeper convergence.
-
-Training performance depends on workload complexity, observation
-design, reward shaping, hardware, and hyperparameters.
-
-The project does not assume that additional training will always
-produce better scheduling performance.
-
-GROQ LLM ANALYST
-----------------
-
-The platform includes an optional LLM-powered analysis component
-using Groq.
-
-Provider:
-Groq
-
-Model:
-openai/gpt-oss-120b
-
-The LLM analyst receives workload characteristics and comparative
-benchmark metrics and produces an expert-style interpretation.
-
-POSSIBLE ANALYSIS TASKS
------------------------
-
-1. Explain why FCFS performed well or poorly.
-2. Analyze the effect of Round Robin time quantum.
-3. Explain SJF and SRTF behavior for the current workload.
-4. Interpret priority scheduling outcomes.
-5. Compare RL performance with classical baselines.
-6. Identify workload characteristics affecting performance.
-7. Summarize benchmark results.
-8. Suggest possible experiment improvements.
-
-ARCHITECTURAL DISTINCTION
--------------------------
-
-The Groq LLM analyst and the local RL policy are separate components.
-
-The PPO agent is responsible for learning scheduling behavior inside
-the simulation environment.
-
-The Groq LLM is responsible for higher-level analysis and reasoning
-about workload and benchmark results.
-
-The LLM is not automatically the CPU scheduling policy.
-
-If LLM-based scheduling decisions are implemented in the future,
-they must use a strict action schema, validate every action, and be
-benchmarked separately from the PPO agent.
-
-FAULT TOLERANCE
----------------
-
-The Groq integration supports Mock Mode.
-
-Mock Mode is automatically used when API credentials are absent or
-invalid, allowing local experiments and telemetry workflows to
-continue without crashing.
-
-The Groq API key must never be hardcoded.
-
-Environment variable:
-
-GROQ_API_KEY
-
-The model name should remain configurable, with
-openai/gpt-oss-120b as the default.
-
-DYNAMIC EXPERIMENT PIPELINE
----------------------------
-
-The experiment.py script provides an automated end-to-end experiment.
-
-The pipeline:
-
-1. Randomizes the workload size between 10 and 30 processes.
-2. Generates a fresh workload.
-3. Instantiates a PPO agent.
-4. Trains the agent for a user-defined number of timesteps.
-5. Runs classical scheduling algorithms.
-6. Runs the trained RL scheduler.
-7. Calculates performance metrics.
-8. Sorts benchmark outcomes by performance.
-9. Exports experiment results.
-10. Optionally triggers Groq LLM analysis.
-
-The pipeline supports quick experiments and longer training runs.
-
-COMMAND-LINE INTERFACE
-----------------------
-
-The CLI is exposed through inference.py.
-
-The user can select a scheduling algorithm and configure execution
-parameters directly from the terminal.
-
-ENVIRONMENT ACTIVATION
-----------------------
+| Parameter           | Value     |
+| :------------------ | :-------- |
+| Algorithm           | PPO       |
+| Policy              | MlpPolicy |
+| Hidden Layers       | 128 × 128 |
+| Learning Rate       | 0.0003    |
+| Rollout Buffer      | 1024      |
+| Batch Size          | 64        |
+| Entropy Coefficient | 0.01      |
+
+The agent trains on randomized workloads to reduce dependence on memorized schedules.
+
+---
+
+## Performance Metrics
+
+All algorithms are evaluated using a common metrics engine.
+
+| Metric           | Description                                           |
+| :--------------- | :---------------------------------------------------- |
+| Waiting Time     | Time spent waiting in the ready queue.                |
+| Turnaround Time  | Completion time − Arrival time.                       |
+| Response Time    | First CPU allocation − Arrival time.                  |
+| Makespan         | Total elapsed time to complete the workload.          |
+| Context Switches | Number of CPU execution switches between processes.   |
+| CPU Utilization  | Proportion of elapsed time spent executing processes. |
+| Throughput       | Number of completed processes per unit of time.       |
+
+### Core formulas
+
+```text
+Turnaround Time = Completion Time - Arrival Time
+
+Waiting Time = Turnaround Time - Burst Time
+
+Response Time = First Start Time - Arrival Time
+
+CPU Utilization = Busy CPU Time / Total Elapsed Time
+```
+
+---
+
+## Groq LLM Analyst
+
+The platform optionally integrates Groq's API using:
+
+```text
+Model: openai/gpt-oss-120b
+Provider: Groq
+```
+
+The LLM analyst receives workload characteristics and comparative metrics to generate explanations such as:
+
+* Why a scheduling algorithm performed well or poorly.
+* How Round Robin's time quantum affected results.
+* Why SJF or SRTF benefited from short CPU bursts.
+* Whether the RL agent generalized to the evaluated workload.
+* How workload characteristics influenced scheduling performance.
+* What experiments could improve the RL policy.
+
+The Groq LLM is a separate analysis component, not the PPO scheduling policy.
+
+### Fault tolerance
+
+If the Groq API key is unavailable or the request fails, Mock Mode allows the platform to continue running without crashing.
+
+Configure the API key using an environment variable:
+
+```powershell
+$env:GROQ_API_KEY="your_api_key"
+```
+
+Never commit API keys to the repository.
+
+---
+
+## Project Structure
+
+```text
+cpu-scheduler-rl/
+│
+├── server/
+│   ├── __init__.py
+│   ├── app.py
+│   └── tests/
+│       └── test_env.py
+│
+├── src/
+│   └── scheduler/
+│       ├── models.py
+│       ├── workload.py
+│       ├── metrics.py
+│       │
+│       ├── algorithms/
+│       │   ├── fcfs.py
+│       │   ├── sjf.py
+│       │   ├── srtf.py
+│       │   ├── priority.py
+│       │   └── round_robin.py
+│       │
+│       ├── simulation/
+│       │   ├── engine.py
+│       │   └── gantt.py
+│       │
+│       ├── rl/
+│       │   ├── environment.py
+│       │   ├── agent.py
+│       │   └── train.py
+│       │
+│       ├── llm/
+│       │   ├── groq_agent.py
+│       │   └── prompts.py
+│       │
+│       ├── benchmark.py
+│       └── cli.py
+│
+├── tests/
+│   ├── test_algorithms.py
+│   ├── test_env.py
+│   ├── test_metrics.py
+│   ├── test_rl.py
+│   └── test_llm_agent.py
+│
+├── models/
+├── workloads/
+├── results/
+├── scripts/
+│   └── benchmark.py
+│
+├── agent.py
+├── env.py
+├── grader.py
+├── inference.py
+├── train.py
+├── experiment.py
+├── tasks.py
+├── openenv.yaml
+├── pyproject.toml
+├── requirements.txt
+├── Dockerfile
+├── .env.example
+└── README.md
+```
+
+---
+
+## Installation
+
+### Prerequisites
+
+* Python 3.11 or newer.
+* Windows, Linux, or macOS.
+* CPU-compatible PyTorch installation.
+* Optional Groq API key for LLM analysis.
+
+### 1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd cpu-scheduler-rl
+```
+
+### 2. Create a virtual environment
+
+```bash
+python -m venv .venv
+```
+
+### 3. Activate the environment
 
 Windows PowerShell:
 
+```powershell
 .\.venv\Scripts\Activate.ps1
+```
 
 macOS/Linux:
 
+```bash
 source .venv/bin/activate
-
-DYNAMIC EXPERIMENT COMMANDS
----------------------------
-
-1. Standard dynamic experiment:
-
-   python experiment.py
-
-   Generates a random workload, trains the RL agent, benchmarks
-   the algorithms, and triggers optional Groq analysis.
-
-2. High-training experiment:
-
-   python experiment.py --timesteps 250000
-
-   Runs the dynamic experiment with 250,000 training timesteps.
-
-3. Disable LLM analysis:
-
-   python experiment.py --no-analyze
-
-   Runs the experiment without triggering Groq analysis.
-
-4. Reproducible experiment:
-
-   python experiment.py --seed 42
-
-   Uses a fixed random seed for reproducibility.
-
-STANDALONE RL TRAINING
-----------------------
-
-1. Train a base model:
-
-   python train.py
-
-   Default configuration:
-   50,000 timesteps.
-   Maximum 5 processes.
-
-2. Train with custom timesteps and process capacity:
-
-   python train.py --timesteps 100000 --processes 10
-
-3. Train with a custom output path and random seed:
-
-   python train.py --timesteps 50000 --processes 8 --output models/my_custom_model --seed 123
-
-The trained model is saved for later inference and benchmarking.
-
-INDIVIDUAL ALGORITHM EXECUTION
-------------------------------
-
-1. FCFS:
-
-   python inference.py --algorithm fcfs --processes 5
-
-2. SJF:
-
-   python inference.py --algorithm sjf --processes 5
-
-3. SRTF:
-
-   python inference.py --algorithm srtf --processes 5
-
-4. Priority Scheduling:
-
-   python inference.py --algorithm priority --processes 5
-
-5. Round Robin with quantum 4:
-
-   python inference.py --algorithm rr --quantum 4 --processes 5
-
-6. Trained RL Agent:
-
-   python inference.py --algorithm rl --model models/ppo_scheduler.zip --processes 5
-
-BENCHMARKING COMMANDS
----------------------
-
-1. Full comparative benchmark:
-
-   python inference.py --algorithm benchmark --processes 5
-
-   Runs classical algorithms and the RL agent on comparable workloads.
-
-2. Benchmark with Groq analysis:
-
-   python inference.py --algorithm benchmark --processes 5 --analyze
-
-3. Export metrics and Gantt chart:
-
-   python inference.py --algorithm sjf --processes 5 --csv results/sjf_metrics.csv --gantt results/sjf_chart.png --no-display
-
-4. Load a custom workload:
-
-   python inference.py --algorithm sjf --workload workloads/sample.json
-
-BENCHMARKING METHODOLOGY
-------------------------
-
-All algorithms should be evaluated using identical workloads for
-fair comparison.
-
-The benchmark engine should support:
-
-1. Fixed random seeds.
-2. Configurable workload counts.
-3. Separate training and evaluation workloads.
-4. Raw per-workload results.
-5. Aggregate metrics.
-6. Mean and median performance.
-7. Standard deviation.
-8. Relevant percentiles.
-9. CSV export.
-10. Comparative plots.
-11. RL-versus-classical analysis.
-
-The RL agent should be evaluated on workloads that were not used
-during training when measuring generalization.
-
-The project does not assume that RL will outperform every classical
-algorithm.
-
-The results should identify the conditions under which each
-algorithm performs well or poorly.
-
-VISUALIZATION AND DATA EXPORT
------------------------------
-
-The platform provides visual and structured output for experiment
-interpretation.
-
-1. Terminal Tables
-
-   Uses tabulate to display scheduling metrics in a readable format.
-
-2. Gantt Charts
-
-   Uses Matplotlib to display process execution intervals over time.
-
-3. CSV Reports
-
-   Exports per-process and aggregate metrics to CSV files.
-
-4. Comparative Plots
-
-   Displays differences in scheduling performance across algorithms.
-
-5. LLM Reports
-
-   Optionally generates natural-language explanations of benchmark
-   results using Groq.
-
-RECOMMENDED PROJECT STRUCTURE
------------------------------
 ```
-cpu-scheduler-rl/
-|
-+-- server/
-|   +-- __init__.py
-|   +-- app.py
-|   +-- tests/
-|       +-- test_env.py
-|
-+-- src/
-|   +-- scheduler/
-|       +-- __init__.py
-|       +-- models.py
-|       +-- workload.py
-|       +-- metrics.py
-|       |
-|       +-- algorithms/
-|       |   +-- __init__.py
-|       |   +-- base.py
-|       |   +-- fcfs.py
-|       |   +-- sjf.py
-|       |   +-- srtf.py
-|       |   +-- priority.py
-|       |   +-- round_robin.py
-|       |
-|       +-- simulation/
-|       |   +-- __init__.py
-|       |   +-- engine.py
-|       |   +-- gantt.py
-|       |
-|       +-- rl/
-|       |   +-- __init__.py
-|       |   +-- environment.py
-|       |   +-- agent.py
-|       |   +-- train.py
-|       |
-|       +-- llm/
-|       |   +-- __init__.py
-|       |   +-- groq_agent.py
-|       |   +-- prompts.py
-|       |
-|       +-- benchmark.py
-|       +-- cli.py
-|
-+-- tests/
-|   +-- test_algorithms.py
-|   +-- test_env.py
-|   +-- test_metrics.py
-|   +-- test_rl.py
-|   +-- test_llm_agent.py
-|
-+-- scripts/
-|   +-- benchmark.py
-|
-+-- models/
-+-- workloads/
-+-- results/
-+-- .env.example
-+-- inference.py
-+-- train.py
-+-- experiment.py
-+-- agent.py
-+-- env.py
-+-- grader.py
-+-- tasks.py
-+-- openenv.yaml
-+-- pyproject.toml
-+-- requirements.txt
-+-- Dockerfile
-+-- README.md
+
+### 4. Install dependencies
+
+Using pip:
+
+```bash
+pip install -r requirements.txt
 ```
-EXISTING REPOSITORY INTEGRATION
---------------------------------
 
-The repository contains existing files including:
+Using uv:
 
-server/app.py
-agent.py
-env.py
-grader.py
-inference.py
-tasks.py
-openenv.yaml
-pyproject.toml
-requirements.txt
-Dockerfile
-README.md
+```bash
+uv sync
+```
 
-These files should be inspected before major architectural changes.
+### 5. Configure optional Groq integration
 
-Existing OpenEnv-related functionality should be preserved or adapted
-where practical.
+Create a `.env` file based on `.env.example`:
 
-The project should avoid unnecessary duplication between root-level
-scripts and the modular scheduler package.
+```env
+GROQ_API_KEY=your_api_key
+GROQ_MODEL=openai/gpt-oss-120b
+```
 
-TESTING
--------
+If the API key is not configured, use Mock Mode.
 
-Run the complete test suite using:
+---
 
+## Usage
+
+All commands below assume the virtual environment is activated.
+
+### Run individual algorithms
+
+FCFS:
+
+```bash
+python inference.py --algorithm fcfs --processes 5
+```
+
+SJF:
+
+```bash
+python inference.py --algorithm sjf --processes 5
+```
+
+SRTF:
+
+```bash
+python inference.py --algorithm srtf --processes 5
+```
+
+Priority Scheduling:
+
+```bash
+python inference.py --algorithm priority --processes 5
+```
+
+Round Robin with a custom time quantum:
+
+```bash
+python inference.py --algorithm rr --quantum 4 --processes 5
+```
+
+### Run the trained RL agent
+
+```bash
+python inference.py \
+    --algorithm rl \
+    --model models/ppo_scheduler.zip \
+    --processes 5
+```
+
+### Train the RL agent
+
+Default training:
+
+```bash
+python train.py
+```
+
+Custom training configuration:
+
+```bash
+python train.py \
+    --timesteps 100000 \
+    --processes 10
+```
+
+Custom output path and seed:
+
+```bash
+python train.py \
+    --timesteps 50000 \
+    --processes 8 \
+    --output models/my_custom_model \
+    --seed 123
+```
+
+### Run dynamic experiments
+
+Standard experiment:
+
+```bash
+python experiment.py
+```
+
+Extended training:
+
+```bash
+python experiment.py --timesteps 250000
+```
+
+Disable Groq analysis:
+
+```bash
+python experiment.py --no-analyze
+```
+
+Reproducible experiment:
+
+```bash
+python experiment.py --seed 42
+```
+
+The dynamic experiment generates randomized workloads, trains an RL agent, evaluates the classical schedulers, compares results, and optionally invokes the Groq analyst.
+
+### Run a complete benchmark
+
+```bash
+python inference.py \
+    --algorithm benchmark \
+    --processes 5
+```
+
+Benchmark with Groq analysis:
+
+```bash
+python inference.py \
+    --algorithm benchmark \
+    --processes 5 \
+    --analyze
+```
+
+### Export results
+
+Save metrics to CSV and a Gantt chart:
+
+```bash
+python inference.py \
+    --algorithm sjf \
+    --processes 5 \
+    --csv results/sjf_metrics.csv \
+    --gantt results/sjf_chart.png \
+    --no-display
+```
+
+### Use a custom workload
+
+```bash
+python inference.py \
+    --algorithm sjf \
+    --workload workloads/sample.json
+```
+
+---
+
+## Benchmarking Methodology
+
+The benchmark engine evaluates algorithms on identical workloads to ensure a fair comparison.
+
+The evaluation process:
+
+```text
+Generate Workloads
+       |
+       v
+Run Classical Algorithms
+       |
+       v
+Run Trained RL Policy
+       |
+       v
+Calculate Common Metrics
+       |
+       v
+Aggregate Results
+       |
+       v
+Export CSV and Visualizations
+       |
+       v
+Optional LLM Interpretation
+```
+
+### Reproducibility
+
+* Fixed random seeds can be used for experiments.
+* Workloads can be saved and loaded from JSON.
+* Training, validation, and test workloads can be separated.
+* Every algorithm receives the same workload during comparison.
+* Raw and aggregate benchmark results can be exported.
+
+### Important considerations
+
+The RL agent is not assumed to outperform classical algorithms universally.
+
+Performance depends on:
+
+* Workload distribution.
+* Reward function.
+* Observation design.
+* Training duration.
+* Model architecture.
+* Scheduling objective.
+
+The project evaluates where RL provides useful scheduling behavior and where classical algorithms remain superior.
+
+---
+
+## Example Output
+
+Illustrative terminal output:
+
+```text
+CPU Scheduler Benchmark
+=======================
+
+Workload: Random
+Processes: 5
+
+Algorithm          Avg WT    Avg TAT    Avg RT    Makespan
+-----------------------------------------------------------
+FCFS                 --         --        --         --
+SJF                  --         --        --         --
+SRTF                 --         --        --         --
+Priority             --         --        --         --
+Round Robin          --         --        --         --
+RL (PPO)             --         --        --         --
+```
+
+Actual values are generated by the simulation and benchmark engine.
+
+---
+
+## Testing
+
+Run the complete test suite:
+
+```bash
 pytest -v
+```
 
-The test suite covers:
+Tests cover:
 
-1. Gymnasium environment compliance.
-2. Environment reset behavior.
-3. Environment step behavior.
-4. Observation shape and data types.
-5. Action validation.
-6. Classical algorithm correctness.
-7. Process arrival handling.
-8. Preemption behavior.
-9. Round Robin time quantum.
-10. Metric calculations.
-11. Gantt timeline generation.
-12. RL model loading.
-13. Groq Mock Mode.
-14. CLI argument validation.
+* Classical scheduling correctness.
+* Process arrivals and completion.
+* SRTF preemption.
+* Round Robin quantum behavior.
+* Metric calculations.
+* Gantt chart generation.
+* Gymnasium environment behavior.
+* Observation and action validity.
+* RL model loading.
+* Groq Mock Mode.
+* CLI validation.
 
-Tests should use deterministic workloads where exact expected
-results can be calculated manually.
+---
 
-INSTALLATION
-------------
+## Technology Stack
 
-1. Clone the repository.
+| Technology        | Purpose                                   |
+| :---------------- | :---------------------------------------- |
+| Python            | Core implementation.                      |
+| Gymnasium         | Reinforcement learning environment API.   |
+| Stable-Baselines3 | PPO training and policy inference.        |
+| PyTorch           | Neural network backend.                   |
+| NumPy             | Numerical computation and observations.   |
+| Pandas            | Benchmark data processing and CSV export. |
+| Matplotlib        | Gantt charts and comparative plots.       |
+| Tabulate          | Structured CLI tables.                    |
+| Pytest            | Automated testing.                        |
+| Groq              | Optional LLM-powered analysis.            |
+| Docker            | Containerized execution.                  |
 
-2. Navigate into the project directory.
+---
 
-3. Create a Python virtual environment:
+## Limitations
 
-   python -m venv .venv
+* Initial RL environment uses a fixed maximum process capacity.
+* The observation space is based on a fixed-size process matrix.
+* Training quality depends on workload distributions and reward design.
+* Classical algorithms may outperform RL on simple workloads.
+* The simulator primarily models CPU-bound process execution.
+* Context-switch overhead may not fully reflect real hardware costs.
+* Multi-core scheduling and I/O bursts are not the primary focus of the current version.
+* Groq analysis depends on API availability and quotas.
 
-4. Activate the environment.
+---
 
-   Windows PowerShell:
-   .\.venv\Scripts\Activate.ps1
+## Future Improvements
 
-   macOS/Linux:
-   source .venv/bin/activate
+* Multi-core CPU scheduling.
+* Context-switch overhead modeling.
+* I/O-bound processes and CPU/I/O burst patterns.
+* Dynamic workload arrivals.
+* Priority aging to reduce starvation.
+* Variable-size process observations.
+* Advanced action masking.
+* Multi-objective reward optimization.
+* Interactive scheduling dashboard.
+* More RL algorithm comparisons.
+* Hyperparameter optimization.
+* Statistical significance testing.
+* LLM-assisted experiment planning.
+* Scheduling policy explainability.
 
-5. Install dependencies:
+---
 
-   pip install -r requirements.txt
+## Engineering and Research Value
 
-6. Configure optional Groq credentials using environment variables.
+This project demonstrates practical experience in:
 
-7. Run the test suite:
+* Operating system scheduling algorithms.
+* Discrete-time simulation.
+* Ready queue management and process state transitions.
+* Reinforcement learning environment design.
+* Markov Decision Processes.
+* PPO policy optimization.
+* Neural network-based decision-making.
+* Reproducible experimentation.
+* Benchmark engineering.
+* Performance metrics and visualization.
+* LLM integration.
+* Python architecture and testing.
 
-   pytest -v
+---
 
-8. Execute an individual scheduler:
+## License
 
-   python inference.py --algorithm fcfs --processes 5
+This project is licensed under the MIT License.
 
-FREE AND LOCAL-FIRST DESIGN
----------------------------
+See the `LICENSE` file for details.
 
-The project is designed to operate using free and open-source
-software.
+---
 
-Core simulation and RL training do not require paid APIs.
+## Author
 
-The Groq LLM integration is optional and depends on available API
-access, quotas, and rate limits.
+**Ritam**
 
-When Groq is unavailable, Mock Mode allows local development and
-benchmarking to continue.
+A systems and AI project combining operating systems, reinforcement learning, and intelligent performance analysis.
 
-The system does not require paid cloud GPUs or paid hosting.
-
-LIMITATIONS
------------
-
-1. The initial RL environment uses a fixed maximum process capacity.
-2. The observation space is based on a fixed-size process matrix.
-3. RL performance depends on reward design and workload distribution.
-4. Classical algorithms may outperform RL on many simple workloads.
-5. The current simulation focuses on CPU-bound process execution.
-6. Context-switch overhead may not fully represent real hardware
-   scheduling costs.
-7. The environment does not necessarily model I/O bursts or
-   multi-core CPU scheduling.
-8. LLM analysis depends on API availability and response quality.
-9. Training time increases with workload complexity and timesteps.
-
-FUTURE IMPROVEMENTS
--------------------
-
-1. Multi-core CPU scheduling.
-2. Context-switch execution overhead.
-3. I/O-bound processes and CPU/I/O burst patterns.
-4. Dynamic workload arrivals.
-5. Priority aging to reduce starvation.
-6. Variable-size process observations.
-7. More advanced action masking.
-8. Alternative RL algorithms such as DQN or A2C.
-9. Multi-objective reward optimization.
-10. Interactive scheduling dashboard.
-11. Advanced benchmark statistics.
-12. Hyperparameter optimization.
-13. Statistical significance testing.
-14. LLM-assisted experiment planning.
-15. Scheduling policy explainability.
-16. More realistic operating-system workload models.
-
-RESEARCH AND ENGINEERING VALUE
-------------------------------
-
-This project demonstrates practical knowledge of:
-
-1. Operating system scheduling algorithms.
-2. Discrete-event and discrete-time simulation.
-3. Queue management and process state transitions.
-4. Reinforcement learning environments.
-5. Markov Decision Processes.
-6. PPO policy optimization.
-7. Neural network-based decision-making.
-8. Reproducible experimentation.
-9. Benchmark design.
-10. Performance metrics and visualization.
-11. LLM integration with structured outputs.
-12. Python software architecture.
-13. Testing and debugging.
-14. CLI application development.
-
-RESULT INTERPRETATION
----------------------
-
-The goal is not to assume that reinforcement learning is universally
-better than classical scheduling.
-
-Instead, the project evaluates whether a learned policy can discover
-useful scheduling behavior under defined workload distributions.
-
-A meaningful experiment should explain:
-
-1. Which algorithm achieved the lowest average waiting time.
-2. Which algorithm achieved the best response time.
-3. How Round Robin quantum affected performance.
-4. How SRTF responded to short jobs.
-5. Whether the RL agent generalized to unseen workloads.
-6. Where classical algorithms outperformed the RL policy.
-7. Whether RL offered a useful trade-off between metrics.
-8. How workload characteristics influenced the results.
-
-All benchmark values must be generated from actual program execution.
-
-LICENSE
--------
-
-Add an appropriate open-source license to the repository.
-
-ACKNOWLEDGEMENTS
------------------
-
-This project uses open-source technologies including Python,
-Gymnasium, Stable-Baselines3, PyTorch, NumPy, Pandas, Matplotlib,
-Pytest, and Groq's API.
-
-AUTHOR
-------
-
-Ritam
-
-PROJECT STATUS
---------------
-
-An end-to-end CPU scheduling simulation and RL benchmarking platform
-with classical scheduling baselines, PPO training, CLI inference,
-visualization, reproducible experiments, and optional Groq-powered
-analysis.
+<p align="center">
+  <strong>CPU Scheduling, Reimagined with Reinforcement Learning.</strong>
+</p>
