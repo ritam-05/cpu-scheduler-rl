@@ -1,9 +1,32 @@
-__pycache__/
-.pytest_cache/
-.ruff_cache/
-.venv/
-*.egg-info/
-*.pyc
-*.pyo
-*.pyd
+# Environments
 .env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Packages
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints
+
+# IDEs
+.idea/
+.vscode/
+
+# Project specifics
+models/*.zip
+results/*.csv
+results/*.png

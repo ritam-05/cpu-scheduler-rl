@@ -1,23 +1,35 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cpu-scheduler-rl"
 version = "0.1.0"
-description = "OpenEnv-style CPU scheduling benchmark with FastAPI deployment and baseline inference."
+description = "CPU Scheduling Simulator and Reinforcement Learning Benchmarking Platform"
+authors = [{ name = "Senior Engineer" }]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
-    "fastapi>=0.115.0",
-    "openai>=1.30.0",
-    "openenv-core>=0.2.0",
-    "uvicorn>=0.30.0",
+    "gymnasium>=0.29.1",
+    "stable-baselines3>=2.3.0",
+    "torch>=2.4.0",
+    "numpy>=1.26.0",
+    "pandas>=2.0.0",
+    "matplotlib>=3.8.0",
+    "tabulate>=0.9.0",
+    "python-dotenv>=1.0.0",
+    "groq>=0.9.0"
 ]
 
-[project.scripts]
-server = "server.app:main"
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "black>=24.0.0",
+    "flake8>=7.0.0"
+]
 
-[tool.setuptools]
-packages = ["server"]
-py-modules = ["agent", "app", "env", "grader", "inference", "tasks"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
