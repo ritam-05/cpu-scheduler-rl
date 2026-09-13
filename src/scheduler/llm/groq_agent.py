@@ -4,6 +4,7 @@ import os
 import json
 from typing import Dict, List, Any
 from groq import Groq, APIError, RateLimitError
+from dotenv import load_dotenv
 
 from scheduler.models import Process
 from scheduler.metrics import MetricsReport
@@ -13,6 +14,9 @@ class SchedulingAnalyst:
     """Uses Groq's API to interpret scheduling workloads and benchmark results."""
 
     def __init__(self, model_name: str = "openai/gpt-oss-120b"):
+        # Explicitly load the .env file so os.getenv can find your key!
+        load_dotenv()
+        
         self.model_name = model_name
         self.api_key = os.getenv("GROQ_API_KEY")
         

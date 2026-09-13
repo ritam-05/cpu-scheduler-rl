@@ -13,10 +13,7 @@ from scheduler.simulation.engine import SimulationResult
 
 
 class RandomizedCPUEnv(CPUScheduleEnv):
-    """An environment that generates a new random workload on every reset.
-    
-    This prevents the RL agent from overfitting to a single workload during training.
-    """
+    """An environment that generates a new random workload on every reset."""
     def __init__(self, max_processes: int = 5, seed: Optional[int] = None):
         super().__init__(max_processes=max_processes)
         self.env_seed = seed
@@ -52,6 +49,7 @@ class RLAgent:
             self.model = PPO.load(model_path, env=self.env)
             print(f"[RLAgent] Loaded existing model from {model_path}")
         else:
+            # UPGRADE: Added policy_kwargs to give the neural net 128 neurons per layer
             self.model = PPO(
                 "MlpPolicy", 
                 self.env, 
@@ -60,9 +58,10 @@ class RLAgent:
                 learning_rate=3e-4,
                 n_steps=1024,
                 batch_size=64,
-                ent_coef=0.01
+                ent_coef=0.01,
+                policy_kwargs=dict(net_arch=[128, 128])
             )
-            print("[RLAgent] Initialized fresh PPO model.")
+            print("[RLAgent] Initialized fresh PPO model with upgraded 128x128 network.")
 
     def train(self, total_timesteps: int, save_path: str) -> None:
         """Train the agent in the randomized environment."""
@@ -85,6 +84,24 @@ class RLAgent:
         
         while not terminated:
             action, _states = self.model.predict(obs, deterministic=deterministic)
-            obs, reward, terminated, truncated, info = eval_env.step(int(action))
+            action = int(action)
+            
+            # --- INFINITE LOOP SAFEGUARD ---
+            is_valid = False
+            if action < len(eval_env.workload):
+                p = eval_env.workload[action]
+                if p.arrival_time <= eval_env.current_time and p.remaining_time > 0:
+                    is_valid = True
+                    
+            if not is_valid:
+                valid_actions = [
+                    i for i, p in enumerate(eval_env.workload) 
+                    if p.arrival_time <= eval_env.current_time and p.remaining_time > 0
+                ]
+                if valid_actions:
+                    action = valid_actions[0]  # Force a valid action
+            # -------------------------------
+            
+            obs, reward, terminated, truncated, info = eval_env.step(action)
 
         return info["simulation_result"]
